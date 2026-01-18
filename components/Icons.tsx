@@ -280,29 +280,32 @@ export const LightbulbIcon: React.FC<{ className?: string }> = (props) => (
 export const LogoIcon: React.FC<{ className?: string }> = (props) => {
   const { className, ...restProps } = props;
   
-  // Dynamic brand detection
-  const getBrandId = () => {
-    // Defensively access import.meta.env
-    let envBrand: string | undefined;
-    try {
-      if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-        envBrand = (import.meta as any).env.VITE_BRAND;
-      }
-    } catch (e) {}
-
-    if (envBrand === 'monoklix') return 'monoklix';
-    if (envBrand === 'esai') return 'esai';
+  // Dynamic import to avoid circular dependency
+  // Check if we need to use SVG component (MONOKLIX) or image (ESAIE)
+  const getBrandConfig = () => {
+    // Try to get brand from environment or detect from window
+    const envBrand = (import.meta.env.VITE_BRAND as string | undefined)?.toLowerCase();
+    if (envBrand === 'monoklix') {
+      return 'monoklix';
+    }
+    if (envBrand === 'esai') {
+      return 'esai';
+    }
     
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname.toLowerCase();
-      if (hostname.includes('monoklix')) return 'monoklix';
-      if (hostname.includes('esai')) return 'esai';
+      if (hostname.includes('monoklix')) {
+        return 'monoklix';
+      }
+      if (hostname.includes('esai')) {
+        return 'esai';
+      }
     }
     
-    return 'monoklix'; // Default fallback
+    return 'monoklix'; // Default: MONOKLIX (main project)
   };
   
-  const brand = getBrandId();
+  const brand = getBrandConfig();
   
   // MONOKLIX uses SVG component
   if (brand === 'monoklix') {

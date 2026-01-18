@@ -1,4 +1,3 @@
-
 import { supabase, type Database } from './supabaseClient';
 
 // Note: The table structure needs to be created in Supabase first
@@ -301,7 +300,6 @@ export const getSalesStatistics = async (): Promise<{
   total_accounts: number;
   available: number;
   sold: number;
-  transferred: number; // FIX: Added transferred to return type
   reserved: number;
   suspended: number;
   expired: number;
@@ -321,7 +319,7 @@ export const getSalesStatistics = async (): Promise<{
         total_accounts: 0,
         available: 0,
         sold: 0,
-        transferred: 0, // FIX: Added transferred to error return
+        transferred: 0,
         reserved: 0,
         suspended: 0,
         expired: 0,
@@ -376,7 +374,6 @@ export const getSalesStatistics = async (): Promise<{
       total_accounts: 0,
       available: 0,
       sold: 0,
-      transferred: 0, // FIX: Added transferred to error return
       reserved: 0,
       suspended: 0,
       expired: 0,
@@ -415,14 +412,14 @@ export const bulkImportAccounts = async (
       notes: account.notes || null,
     });
 
-    if (result.success === true) {
+    if (result.success) {
       success++;
     } else {
       failed++;
-      // FIX: Type narrowing for union type
-      errors.push(`${account.email}: ${(result as any).message}`);
+      errors.push(`${account.email}: ${result.message}`);
     }
   }
 
   return { success, failed, errors };
 };
+

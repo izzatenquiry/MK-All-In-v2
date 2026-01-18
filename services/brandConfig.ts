@@ -1,4 +1,3 @@
-
 /**
  * Brand Configuration
  * Centralized brand theming system for ESAIE.TECH and MONOKLIX.COM
@@ -11,8 +10,8 @@ export type BrandName = 'esai' | 'monoklix';
  * Format: {brand}_{platform}_v{number}
  */
 export const SHARED_APP_VERSION = {
-  electron: 'All-In-v2_PC',
-  web: 'All-In-v2_Web',
+  electron: 'All_In_PC_v2',
+  web: 'All_In_WEB_v2',
 };
 
 export interface BrandConfig {
@@ -201,25 +200,19 @@ const isElectronEnvironment = (): boolean => {
  * Default: MONOKLIX (this is the main MONOKLIX project)
  */
 export const detectBrand = (): BrandName => {
-  let envBrand: BrandName | undefined;
-
-  // Priority 1: Defensive check for Vite/Process environment variables
-  try {
-    // Safe check for import.meta.env
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-      envBrand = (import.meta as any).env.VITE_BRAND as BrandName;
-    }
-    
-    // Fallback to process.env if available
-    if (!envBrand && typeof process !== 'undefined' && process.env) {
-      envBrand = (process.env as any).VITE_BRAND as BrandName;
-    }
-  } catch (e) {
-    // Fail silently
+  // Priority 1: Environment variable (works in dev & build)
+  // Using 'as any' because TypeScript doesn't have vite/client types in strict mode
+  const envBrand = ((import.meta as any).env?.VITE_BRAND || undefined) as BrandName | undefined;
+  
+  // Debug: Log what we're getting from import.meta.env
+  if (typeof window !== 'undefined') {
+    console.log(`[BrandConfig] detectBrand() called - envBrand from import.meta.env.VITE_BRAND:`, envBrand);
+    console.log(`[BrandConfig] Full import.meta.env:`, (import.meta as any).env);
   }
   
   if (envBrand && (envBrand === 'esai' || envBrand === 'monoklix')) {
-    // Save to localStorage for Electron persistence if needed
+    console.log(`[BrandConfig] ✓ Using brand from VITE_BRAND: ${envBrand}`);
+    // Save to localStorage for Electron persistence
     if (isElectronEnvironment() && typeof localStorage !== 'undefined') {
       localStorage.setItem('electron_brand', envBrand);
     }
@@ -230,6 +223,7 @@ export const detectBrand = (): BrandName => {
   if (isElectronEnvironment() && typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
     const electronBrand = localStorage.getItem('electron_brand') as BrandName | null;
     if (electronBrand && (electronBrand === 'esai' || electronBrand === 'monoklix')) {
+      console.log(`[BrandConfig] Using brand from Electron localStorage: ${electronBrand}`);
       return electronBrand;
     }
   }
@@ -238,19 +232,29 @@ export const detectBrand = (): BrandName => {
   if (typeof window !== 'undefined' && !isElectronEnvironment()) {
     const hostname = window.location.hostname.toLowerCase();
     
-    // Check for ESAIE domains
-    if (hostname.includes('esai') || hostname.includes('esaie.tech')) {
+    // Check for ESAIE domains (esaie.tech, esaie.tech, or any subdomain with 'esai')
+    if (hostname.includes('esai') || hostname.includes('esaie.tech') || hostname.includes('esaie')) {
+      console.log(`[BrandConfig] Auto-detected brand from domain: esai (hostname: ${hostname})`);
       return 'esai';
     }
     
-    // Check for MONOKLIX domains
-    if (hostname.includes('monoklix') || hostname.endsWith('.monoklix.com')) {
+    // Check for MONOKLIX domains (monoklix.com or any subdomain like app.monoklix.com, app2.monoklix.com, dev.monoklix.com)
+    if (hostname.includes('monoklix') || hostname.endsWith('.monoklix.com') || hostname === 'monoklix.com') {
+      console.log(`[BrandConfig] Auto-detected brand from domain: monoklix (hostname: ${hostname})`);
       return 'monoklix';
     }
   }
 
-  // Default fallback: MONOKLIX
-  return 'monoklix';
+  // Default fallback: MONOKLIX (this is the main MONOKLIX project folder)
+  const defaultBrand: BrandName = 'monoklix';
+  console.log(`[BrandConfig] Using default brand: ${defaultBrand}`);
+  
+  // Save default to localStorage for Electron if not set
+  if (isElectronEnvironment() && typeof localStorage !== 'undefined' && !localStorage.getItem('electron_brand')) {
+    localStorage.setItem('electron_brand', defaultBrand);
+  }
+  
+  return defaultBrand;
 };
 
 /**
@@ -300,23 +304,41 @@ export const BRAND_CONFIG = getBrandConfig();
 
 /**
  * Set brand for Electron (updates localStorage)
+ * This allows runtime brand switching in Electron apps
  */
 export const setElectronBrand = (brand: BrandName): void => {
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    console.warn('[BrandConfig] Cannot set Electron brand: window or localStorage not available');
+    return;
+  }
   
-  if (brand !== 'esai' && brand !== 'monoklix') return;
+  if (brand !== 'esai' && brand !== 'monoklix') {
+    console.error(`[BrandConfig] Invalid brand: ${brand}. Must be 'esai' or 'monoklix'`);
+    return;
+  }
   
   localStorage.setItem('electron_brand', brand);
+  console.log(`[BrandConfig] Electron brand set to: ${brand}`);
+  
+  // Reload page to apply new brand (brand is detected at startup)
   if (isElectronEnvironment()) {
     window.location.reload();
   }
 };
 
 /**
- * Get current Electron brand from localStorage
+ * Get current Electron brand from localStorage (without triggering detection)
  */
 export const getElectronBrand = (): BrandName | null => {
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return null;
+  }
+  
   const brand = localStorage.getItem('electron_brand') as BrandName | null;
-  return (brand === 'esai' || brand === 'monoklix') ? brand : null;
+  if (brand === 'esai' || brand === 'monoklix') {
+    return brand;
+  }
+  
+  return null;
 };
+

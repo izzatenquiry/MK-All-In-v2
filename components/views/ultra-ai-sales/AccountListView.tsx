@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -136,7 +135,7 @@ const AccountListView: React.FC<AccountListViewProps> = ({
   const handleDelete = async () => {
     if (!selectedAccount) return;
     const result = await deleteAccount(selectedAccount.id);
-    if (result.success === true) {
+    if (result.success) {
       setStatusMessage({ type: 'success', message: 'Account deleted successfully' });
       setIsDeleteModalOpen(false);
       setSelectedAccount(null);
@@ -144,8 +143,7 @@ const AccountListView: React.FC<AccountListViewProps> = ({
       onRefresh();
       setTimeout(() => setStatusMessage(null), 3000);
     } else {
-      // FIX: Type narrowing for union type
-      setStatusMessage({ type: 'error', message: (result as any).message || 'Failed to delete account' });
+      setStatusMessage({ type: 'error', message: result.message || 'Failed to delete account' });
       setTimeout(() => setStatusMessage(null), 5000);
     }
   };
@@ -179,7 +177,7 @@ const AccountListView: React.FC<AccountListViewProps> = ({
       payment_method: paymentMethod || undefined,
       payment_status: paymentStatus,
     });
-    if (result.success === true) {
+    if (result.success) {
       setStatusMessage({ type: 'success', message: 'Account marked as sold successfully' });
       setIsSoldModalOpen(false);
       setSelectedAccount(null);
@@ -188,8 +186,7 @@ const AccountListView: React.FC<AccountListViewProps> = ({
       onRefresh();
       setTimeout(() => setStatusMessage(null), 3000);
     } else {
-      // FIX: Type narrowing for union type
-      setStatusMessage({ type: 'error', message: (result as any).message || 'Failed to mark as sold' });
+      setStatusMessage({ type: 'error', message: result.message || 'Failed to mark as sold' });
       setTimeout(() => setStatusMessage(null), 5000);
     }
   };
@@ -221,7 +218,7 @@ const AccountListView: React.FC<AccountListViewProps> = ({
         notes: notes.trim() || null,
       });
 
-      if (result.success === true) {
+      if (result.success) {
         setStatusMessage({ type: 'success', message: 'Account added successfully' });
         resetAddAccountForm();
         setIsAddAccountModalOpen(false);
@@ -229,8 +226,7 @@ const AccountListView: React.FC<AccountListViewProps> = ({
         onRefresh();
         setTimeout(() => setStatusMessage(null), 3000);
       } else {
-        // FIX: Type narrowing for union type
-        setStatusMessage({ type: 'error', message: (result as any).message || 'Failed to add account' });
+        setStatusMessage({ type: 'error', message: result.message || 'Failed to add account' });
         setTimeout(() => setStatusMessage(null), 5000);
       }
     } catch (error) {
@@ -269,7 +265,7 @@ const AccountListView: React.FC<AccountListViewProps> = ({
       status: 'available',
     });
 
-    if (result.success === true) {
+    if (result.success) {
       setStatusMessage({ type: 'success', message: 'Account activated successfully. Status changed to Available.' });
       setIsActivateModalOpen(false);
       setSelectedAccountForActivate(null);
@@ -277,8 +273,7 @@ const AccountListView: React.FC<AccountListViewProps> = ({
       onRefresh();
       setTimeout(() => setStatusMessage(null), 3000);
     } else {
-      // FIX: Type narrowing for union type
-      setStatusMessage({ type: 'error', message: (result as any).message || 'Failed to activate account' });
+      setStatusMessage({ type: 'error', message: result.message || 'Failed to activate account' });
       setTimeout(() => setStatusMessage(null), 5000);
     }
   };
@@ -318,7 +313,7 @@ const AccountListView: React.FC<AccountListViewProps> = ({
 
       const result = await updateAccount(selectedAccountForEdit.id, updates);
 
-      if (result.success === true) {
+      if (result.success) {
         setStatusMessage({ type: 'success', message: 'Account updated successfully' });
         setIsEditModalOpen(false);
         setSelectedAccountForEdit(null);
@@ -326,8 +321,7 @@ const AccountListView: React.FC<AccountListViewProps> = ({
         onRefresh();
         setTimeout(() => setStatusMessage(null), 3000);
       } else {
-        // FIX: Type narrowing for union type
-        setStatusMessage({ type: 'error', message: (result as any).message || 'Failed to update account' });
+        setStatusMessage({ type: 'error', message: result.message || 'Failed to update account' });
         setTimeout(() => setStatusMessage(null), 5000);
       }
     } catch (error) {
@@ -401,12 +395,12 @@ const AccountListView: React.FC<AccountListViewProps> = ({
         code
       );
 
-      if (result.success === true) {
+      if (result.success) {
         const updateResult = await updateAccount(selectedAccountForTransfer.id, {
           status: 'transferred',
         });
         
-        if (updateResult.success === true) {
+        if (updateResult.success) {
           setStatusMessage({ 
             type: 'success', 
             message: `Account transferred with new code ${code}. Status changed to Transferred.` 
@@ -417,18 +411,16 @@ const AccountListView: React.FC<AccountListViewProps> = ({
           onRefresh();
           setTimeout(() => setStatusMessage(null), 3000);
         } else {
-          // FIX: Type narrowing for union type
           setStatusMessage({ 
             type: 'error', 
-            message: `Account transferred with code ${code}, but failed to update status: ${(updateResult as any).message}` 
+            message: `Account transferred with code ${code}, but failed to update status: ${updateResult.message}` 
           });
           await fetchAccounts();
           onRefresh();
           setTimeout(() => setStatusMessage(null), 5000);
         }
       } else {
-        // FIX: Type narrowing for union type
-        setStatusMessage({ type: 'error', message: (result as any).message || 'Failed to transfer account' });
+        setStatusMessage({ type: 'error', message: result.message || 'Failed to transfer account' });
         setTimeout(() => setStatusMessage(null), 5000);
       }
     } catch (error) {
@@ -463,12 +455,12 @@ const AccountListView: React.FC<AccountListViewProps> = ({
         password: selectedAccountForTransfer.password || undefined,
       });
 
-      if (result.success === true) {
+      if (result.success) {
         const updateResult = await updateAccount(selectedAccountForTransfer.id, {
           status: 'transferred',
         });
         
-        if (updateResult.success === true) {
+        if (updateResult.success) {
           setStatusMessage({ 
             type: 'success', 
             message: `Account transferred to existing flow account ${selectedFlowAccountCode}. Email replaced. Status changed to Transferred.` 
@@ -480,18 +472,16 @@ const AccountListView: React.FC<AccountListViewProps> = ({
           onRefresh();
           setTimeout(() => setStatusMessage(null), 3000);
         } else {
-          // FIX: Type narrowing for union type
           setStatusMessage({ 
             type: 'error', 
-            message: `Email replaced in flow account ${selectedFlowAccountCode}, but failed to update status: ${(updateResult as any).message}` 
+            message: `Email replaced in flow account ${selectedFlowAccountCode}, but failed to update status: ${updateResult.message}` 
           });
           await fetchAccounts();
           onRefresh();
           setTimeout(() => setStatusMessage(null), 5000);
         }
       } else {
-        // FIX: Type narrowing for union type
-        setStatusMessage({ type: 'error', message: (result as any).message || 'Failed to replace email' });
+        setStatusMessage({ type: 'error', message: result.message || 'Failed to replace email' });
         setTimeout(() => setStatusMessage(null), 5000);
       }
     } catch (error) {
@@ -1558,3 +1548,4 @@ const AccountListView: React.FC<AccountListViewProps> = ({
 };
 
 export default AccountListView;
+

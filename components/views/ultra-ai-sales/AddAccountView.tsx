@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   addAccount,
@@ -61,14 +60,13 @@ const AddAccountView: React.FC<AddAccountViewProps> = ({
         tags: tags.length > 0 ? tags : null,
       });
 
-      if (result.success === true) {
+      if (result.success) {
         setStatusMessage({ type: 'success', message: 'Account added successfully' });
         resetForm();
         onSuccess();
         setTimeout(() => setStatusMessage(null), 3000);
       } else {
-        // FIX: Type narrowing for union type
-        setStatusMessage({ type: 'error', message: (result as any).message || 'Failed to add account' });
+        setStatusMessage({ type: 'error', message: result.message || 'Failed to add account' });
         setTimeout(() => setStatusMessage(null), 5000);
       }
     } catch (error) {
@@ -414,3 +412,4 @@ const AddAccountView: React.FC<AddAccountViewProps> = ({
 };
 
 export default AddAccountView;
+

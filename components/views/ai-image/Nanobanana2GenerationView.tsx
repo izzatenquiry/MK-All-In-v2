@@ -404,8 +404,7 @@ const Nanobanana2GenerationView: React.FC<Nanobanana2GenerationViewProps> = ({
     try {
       const result = await saveUserRecaptchaToken(currentUser.id, personalKeyInput.trim() || null);
       if (result.success) {
-        // FIX: Use type assertion to access 'user' on union type.
-        onUserUpdate((result as any).user);
+        onUserUpdate(result.user);
         setSaveKeyStatus('success');
         setShowPersonalKeyForm(false);
         setPersonalKeyInput('');
@@ -416,12 +415,10 @@ const Nanobanana2GenerationView: React.FC<Nanobanana2GenerationViewProps> = ({
       } else {
         setSaveKeyStatus('error');
         // Check for master key error message
-        // FIX: Use type assertion to access 'message' on union type.
-        const msg = (result as any).message;
-        if (msg && msg.includes('MASTER_KEY_NOT_ALLOWED')) {
+        if (result.message.includes('MASTER_KEY_NOT_ALLOWED')) {
           setError('You cannot use the master Anti-Captcha API key. Please use your own personal Anti-Captcha API key.');
         } else {
-          setError(msg || 'Failed to save key. Please try again.');
+          setError(result.message || 'Failed to save key. Please try again.');
         }
       }
     } catch (err) {
@@ -1033,3 +1030,4 @@ const Nanobanana2GenerationView: React.FC<Nanobanana2GenerationViewProps> = ({
 };
 
 export default Nanobanana2GenerationView;
+

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { getAllFlowAccounts, addFlowAccount, updateFlowAccount, removeFlowAccount, type FlowAccount } from '../../services/flowAccountService';
@@ -76,7 +75,7 @@ const FlowAccountView: React.FC<FlowAccountViewProps> = ({ language }) => {
       }
     }
 
-    // FIX: Removed duplicate prefix declaration.
+    const prefix = BRAND_CONFIG.name === 'ESAIE' ? 'E' : 'G';
     return `${prefix}${nextNumber}`;
   };
 
@@ -499,7 +498,7 @@ const FlowAccountView: React.FC<FlowAccountViewProps> = ({ language }) => {
       {isRemoveModalOpen && selectedAccount && (
         <ConfirmationModal
           isOpen={isRemoveModalOpen}
-          onCancel={() => {
+          onClose={() => {
             setIsRemoveModalOpen(false);
             setSelectedAccount(null);
           }}

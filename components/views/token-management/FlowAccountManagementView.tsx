@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { getBackendCookies, grabCookie, type BackendCookie } from '../../../services/tokenBackendService';
@@ -155,8 +154,7 @@ const FlowAccountManagementView: React.FC<FlowAccountManagementViewProps> = ({ l
       fetchAccounts();
       setTimeout(() => setStatusMessage(null), 3000);
     } else {
-      // FIX: Use type assertion to access 'message' on union type.
-      setStatusMessage({ type: 'error', message: (result as any).message });
+      setStatusMessage({ type: 'error', message: result.message });
       setTimeout(() => setStatusMessage(null), 5000);
     }
   };
@@ -195,8 +193,7 @@ const FlowAccountManagementView: React.FC<FlowAccountManagementViewProps> = ({ l
       fetchAccounts();
       setTimeout(() => setStatusMessage(null), 3000);
     } else {
-      // FIX: Use type assertion to access 'message' on union type.
-      setStatusMessage({ type: 'error', message: (result as any).message || 'Failed to update account' });
+      setStatusMessage({ type: 'error', message: result.message || 'Failed to update account' });
       setTimeout(() => setStatusMessage(null), 5000);
     }
   };
@@ -483,7 +480,7 @@ const FlowAccountManagementView: React.FC<FlowAccountManagementViewProps> = ({ l
             onClick={() => setIsAddModalOpen(true)}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 mx-auto"
           >
-            <PlusIcon className="w-5 h-5" />
+            <PlusIcon className="w-4 h-4" />
             Add First Flow Account
           </button>
         </div>
@@ -657,11 +654,10 @@ const FlowAccountManagementView: React.FC<FlowAccountManagementViewProps> = ({ l
       )}
 
       {/* Remove Confirmation Modal */}
-      {/* FIX: Change onClose to onCancel to match ConfirmationModalProps. */}
       {isRemoveModalOpen && selectedSupabaseAccount && (
         <ConfirmationModal
           isOpen={isRemoveModalOpen}
-          onCancel={() => {
+          onClose={() => {
             setIsRemoveModalOpen(false);
             setSelectedSupabaseAccount(null);
           }}
@@ -670,8 +666,7 @@ const FlowAccountManagementView: React.FC<FlowAccountManagementViewProps> = ({ l
           message={`Are you sure you want to remove flow account "${selectedSupabaseAccount.code}" (${selectedSupabaseAccount.email})? This action cannot be undone.`}
           confirmText="Remove"
           cancelText="Cancel"
-          confirmButtonClass="bg-red-600"
-          language={language}
+          confirmColor="red"
         />
       )}
 

@@ -1,8 +1,11 @@
+
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import ImageUpload from '../../common/ImageUpload';
+// FIX: Removed invalid import for 'composeImage'.
 import { type MultimodalContent, generateMultimodalContent, generateVideo } from '../../../services/geminiService';
 import { addHistoryItem } from '../../../services/historyService';
 import Spinner from '../../common/Spinner';
+// FIX: Added missing UserIcon and TikTokIcon to fix 'Cannot find name' errors.
 import { StarIcon, DownloadIcon, ImageIcon, VideoIcon, WandIcon, AlertTriangleIcon, RefreshCwIcon, XIcon, UserIcon, TikTokIcon, UsersIcon, InformationCircleIcon } from '../../Icons';
 import { getProductReviewImagePrompt, getProductReviewStoryboardPrompt, getImageEditingPrompt } from '../../../services/promptManager';
 import { type User, type Language } from '../../../types';
@@ -98,6 +101,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
   const [generatedVideos, setGeneratedVideos] = useState<(string | null)[]>(Array(4).fill(null));
   const [generatedThumbnails, setGeneratedThumbnails] = useState<(string | null)[]>(Array(4).fill(null));
   const [videoFilenames, setVideoFilenames] = useState<(string | null)[]>(Array(4).fill(null));
+  // FIX: Add missing videoGenerationErrors state to resolve 'Cannot find name' errors.
   const [videoGenerationErrors, setVideoGenerationErrors] = useState<(string | null)[]>(Array(4).fill(null));
   const [downloadingVideoIndex, setDownloadingVideoIndex] = useState<number | null>(null);
   const isVideoCancelledRef = useRef(false);
@@ -153,12 +157,14 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
             productDesc,
             selectedContentType, selectedLanguage, storyboard, includeCaptions, includeVoiceover,
             includeModel,
-            parsedScenes, creativeState,
+            parsedScenes, 
+            creativeState,
             videoAspectRatio, videoResolution, videoLanguage,
             voiceoverMode, voiceoverMood, musicStyle
         };
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(stateToSave));
     } catch (e: any) {
+        // Only log if it's not a quota error (to avoid spam)
         if (e.name !== 'QuotaExceededError' && e.code !== 22) {
             console.error("Failed to save state to session storage", e);
         }
@@ -187,6 +193,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
     };
   }, []);
 
+  // Effect to re-parse scenes whenever the storyboard text is edited by the user.
   useEffect(() => {
     if (storyboard) {
       const sceneSplitRegex = /\*\*(?:Scene|Babak)\s+\d+:\s*\*\*/i;
@@ -225,6 +232,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
     setGeneratedImages(Array(4).fill(null));
     setImageGenerationErrors(Array(4).fill(null));
     
+    // Revoke any existing video URLs before resetting state to prevent memory leaks.
     generatedVideosRef.current.forEach(url => { if (url && url.startsWith('blob:')) URL.revokeObjectURL(url) });
     setGeneratedVideos(Array(4).fill(null));
 
@@ -233,6 +241,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
     setVideoGenerationStatus(Array(4).fill('idle'));
     setVideoGenerationErrors(Array(4).fill(null));
 
+    // FIX: Group creative direction properties into a `creativeDirection` object to match the function signature.
     const prompt = getProductReviewStoryboardPrompt({
       productDesc,
       selectedLanguage,
@@ -250,7 +259,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
       }
       
       const result = await generateMultimodalContent(prompt, imagesPayload);
-      setStoryboard(result);
+      setStoryboard(result); // This will trigger the useEffect to parse scenes
 
       await addHistoryItem({
         type: 'Storyboard',
@@ -267,15 +276,20 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
   };
 
   const handleSceneChange = (index: number, newText: string) => {
+    // Reconstruct the full storyboard string from the modified scenes
     if (storyboard) {
+        // Create a temporary copy of parsedScenes to work with.
         const updatedScenes = [...parsedScenes];
         updatedScenes[index] = newText;
 
         const isMalay = selectedLanguage === 'Bahasa Malaysia';
         const sceneTitle = isMalay ? 'Babak' : 'Scene';
+        
+        // This regex will find all scene titles in the original storyboard.
         const titles = storyboard?.match(/\*\*(?:Scene|Babak)\s+\d+:.*?\*\*/gi) || [];
         
         const newStoryboardString = updatedScenes.map((content, i) => {
+            // Try to use the original title, otherwise generate a new one.
             const title = titles[i] || `**${sceneTitle} ${i + 1}:**`;
             return `${title}\n${content}`;
         }).join('\n\n');
@@ -284,6 +298,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
     }
   };
 
+    // New optimized function that uses pre-uploaded media IDs
     const generateSceneImageWithMediaIds = async (
         index: number, 
         serverUrl: string | undefined,
@@ -313,6 +328,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
                 creativeDirection: creativeState
             });
             
+            // Build recipe media inputs using pre-uploaded media IDs
             const recipeMediaInputs = [
                 {
                     caption: 'product',
@@ -333,14 +349,15 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
                 });
             }
 
+            // Use runImageRecipe directly with pre-uploaded media IDs
             const { runImageRecipe } = await import('../../../services/imagenV3Service');
             const result = await runImageRecipe({
                 userInstruction: prompt,
                 recipeMediaInputs,
                 config: {
                     aspectRatio: videoAspectRatio as '1:1' | '9:16' | '16:9',
-                    authToken: authToken,
-                    serverUrl: serverUrl || mediaServerUrl
+                    authToken: authToken, // Use the token that owns the media IDs
+                    serverUrl: serverUrl || mediaServerUrl // Use recipe server or fallback to media server
                 }
             });
             const imageBase64 = result.imagePanels?.[0]?.generatedImages?.[0]?.encodedImage;
@@ -404,12 +421,14 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
               imagesToCompose.push({ ...faceImage, category: 'MEDIA_CATEGORY_SUBJECT', caption: 'model face' });
             }
 
+            // The executeProxiedRequest within editOrComposeWithNanoBanana handles all token logic.
+            // If serverUrl is provided, use it for multi-server distribution
             const result = await editOrComposeWithNanoBanana({
                 prompt,
                 images: imagesToCompose,
                 config: { 
                     aspectRatio: videoAspectRatio as '1:1' | '9:16' | '16:9',
-                    serverUrl: serverUrl
+                    serverUrl: serverUrl // Pass server URL for multi-server distribution
                 }
             });
             const imageBase64 = result.imagePanels?.[0]?.generatedImages?.[0]?.encodedImage;
@@ -516,22 +535,27 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
 
   const handleGenerateAllImages = async () => {
     setIsGeneratingImages(true);
+    
+    // Check if user selected localhost server
     const selectedServer = sessionStorage.getItem('selectedProxyServer');
     const isLocalhost = selectedServer?.includes('localhost');
     
+    // OPTIMIZATION: Upload shared images (product + face) ONCE and reuse media IDs for all scenes
+    // This reduces uploads from 8 (4 scenes × 2 images) to just 2 (1 product + 1 face)
     let sharedProductMediaId: string | null = null;
     let sharedFaceMediaId: string | null = null;
     let sharedToken: string | undefined;
     let sharedServerUrl: string | undefined;
     
     try {
+        // Upload product image once
         if (productImage) {
             const { uploadImageForNanoBanana } = await import('../../../services/imagenV3Service');
             const { cropImageToAspectRatio } = await import('../../../services/imageService');
             
             let processedBase64 = productImage.base64;
             try {
-                processedBase64 = await cropImageToAspectRatio(productImage.base64, (videoAspectRatio as '1:1' | '9:16' | '16:9') || '1:1');
+                processedBase64 = await cropImageToAspectRatio(productImage.base64, videoAspectRatio || '1:1');
             } catch (cropError) {
                 console.warn('Failed to process product image, using original', cropError);
             }
@@ -546,15 +570,17 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
             sharedProductMediaId = uploadResult.mediaId;
             sharedToken = uploadResult.successfulToken;
             sharedServerUrl = uploadResult.successfulServerUrl;
+            console.log(`📤 [Optimization] Uploaded product image once. MediaId: ${sharedProductMediaId.substring(0, 20)}...`);
         }
         
+        // Upload face image once (if model is included)
         if (includeModel === 'Yes' && faceImage) {
             const { uploadImageForNanoBanana } = await import('../../../services/imagenV3Service');
             const { cropImageToAspectRatio } = await import('../../../services/imageService');
             
             let processedBase64 = faceImage.base64;
             try {
-                processedBase64 = await cropImageToAspectRatio(faceImage.base64, (videoAspectRatio as '1:1' | '9:16' | '16:9') || '1:1');
+                processedBase64 = await cropImageToAspectRatio(faceImage.base64, videoAspectRatio || '1:1');
             } catch (cropError) {
                 console.warn('Failed to process face image, using original', cropError);
             }
@@ -562,11 +588,12 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
             const uploadResult = await uploadImageForNanoBanana(
                 processedBase64,
                 faceImage.mimeType,
-                sharedToken,
+                sharedToken, // Use same token
                 undefined,
-                sharedServerUrl
+                sharedServerUrl // Use same server
             );
             sharedFaceMediaId = uploadResult.mediaId;
+            console.log(`📤 [Optimization] Uploaded face image once. MediaId: ${sharedFaceMediaId.substring(0, 20)}...`);
         }
     } catch (uploadError) {
         console.error('Failed to upload shared images:', uploadError);
@@ -574,24 +601,39 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
         return;
     }
     
+    // Multi-Server Distribution: Randomly distribute 4 recipe requests across different servers
+    // If user selected localhost, use localhost for all requests (no distribution)
     const serverUrls: (string | undefined)[] = [];
+    
     if (isLocalhost) {
+        // User selected localhost - use localhost for all requests
         for (let i = 0; i < 4; i++) {
             serverUrls.push(selectedServer);
         }
+        console.log(`🚀 [Localhost] Using localhost server for all 4 recipe requests`);
     } else {
-        const availableServers = SERVERS.map(s => s.url).filter(url => !url.includes('localhost'));
+        // Filter out localhost server for production multi-server distribution
+        const availableServers = SERVERS
+            .map(s => s.url)
+            .filter(url => !url.includes('localhost'));
+        
+        // Random distribution for better load balancing
         if (availableServers.length > 0) {
             for (let i = 0; i < 4; i++) {
-                serverUrls.push(availableServers[Math.floor(Math.random() * availableServers.length)]);
+                // Randomly select a server for each scene
+                const randomIndex = Math.floor(Math.random() * availableServers.length);
+                serverUrls.push(availableServers[randomIndex]);
             }
         } else {
+            // Fallback: no server override (use default)
             for (let i = 0; i < 4; i++) {
                 serverUrls.push(undefined);
             }
         }
+        console.log(`🚀 [Multi-Server] Randomly distributing 4 recipe requests across ${availableServers.length} servers:`, serverUrls);
     }
     
+    // Fire parallel recipe requests with shared media IDs
     const promises = [];
     for (let i = 0; i < 4; i++) {
         if (parsedScenes[i]) {
@@ -646,6 +688,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
         visualDescription = visualDescription.replace(/\*\*(.*?):\*\*/g, '').replace(/[\*\-]/g, '').replace(/\s+/g, ' ').trim();
         
         const isMalay = videoLanguage === 'Bahasa Malaysia';
+        
         let targetLanguage = videoLanguage;
         if (isMalay) {
             targetLanguage = 'Malaysian Malay';
@@ -663,6 +706,8 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
         }
 
         const promptLines: string[] = [];
+
+        // System Rules
         promptLines.push(isMalay ? '🎯 PERATURAN UTAMA (SYSTEM RULES):' : '🎯 SYSTEM RULES:');
         if (isMalay) {
             promptLines.push('Bahasa lisan dan suara latar MESTILAH 100% dalam Bahasa Melayu Malaysia. Ini adalah arahan PALING PENTING.');
@@ -672,6 +717,8 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
             promptLines.push('❌ Do not use other languages or foreign accents.');
         }
         promptLines.push('\n---');
+
+        // Visuals
         promptLines.push(isMalay ? '🎬 VISUAL (SCENE DESCRIPTION):' : '🎬 VISUAL (SCENE DESCRIPTION):');
         promptLines.push(isMalay ? 'Animasikan imej yang diberikan.' : 'Animate the provided image.');
         if (includeModel === 'No') {
@@ -682,14 +729,18 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
         }
         promptLines.push(visualDescription);
         promptLines.push('\n---');
+
+        // Creative Style
         promptLines.push(isMalay ? '🎨 GAYA KREATIF (CREATIVE STYLE):' : '🎨 CREATIVE STYLE:');
         promptLines.push(`• ${isMalay ? 'Gaya artistik' : 'Artistic style'}: ${creativeState.style === 'Random' ? (isMalay ? 'fotorealistik' : 'photorealistic') : creativeState.style}`);
         promptLines.push(`• ${isMalay ? 'Pencahayaan' : 'Lighting'}: ${creativeState.lighting === 'Random' ? (isMalay ? 'semula jadi' : 'natural') : creativeState.lighting}`);
         promptLines.push(`• ${isMalay ? 'Kamera' : 'Camera'}: ${creativeState.camera === 'Random' ? (isMalay ? 'shot sederhana' : 'medium shot') : creativeState.camera}`);
         promptLines.push('\n---');
 
+        // Audio
         if (includeVoiceover === 'Yes' && voiceover) {
             promptLines.push(isMalay ? '🔊 AUDIO (DIALOGUE):' : '🔊 AUDIO (DIALOGUE):');
+            
             if (voiceoverMode === 'sing') {
                  promptLines.push(isMalay
                     ? `Nyanyikan lirik berikut dalam gaya muzik ${musicStyle}:`
@@ -699,8 +750,11 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
                     ? `Gunakan hanya dialog berikut dalam Bahasa Melayu Malaysia:`
                     : `Use only the following dialogue in ${targetLanguage}:`);
             }
+            
             promptLines.push(`"${voiceover}"`);
+            
             promptLines.push(isMalay ? 'ARAHAN PENTING: Sebutkan skrip ini dengan lengkap, perkataan demi perkataan. Jangan ubah atau ringkaskan ayat.' : 'CRITICAL INSTRUCTION: Speak this script completely, word for word. Do not change or shorten the sentences.');
+            
             if (voiceoverMode === 'speak') {
                  promptLines.push(isMalay 
                     ? `Nada suara: ${voiceoverMood}.` 
@@ -709,6 +763,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
             promptLines.push('\n---');
         }
 
+        // Additional Reminders
         promptLines.push(isMalay ? '🚫 PERINGATAN TAMBAHAN:' : '🚫 ADDITIONAL REMINDERS:');
         if (includeCaptions === 'Yes' && caption) {
             promptLines.push(isMalay ? `• Paparkan teks pada skrin ini sahaja: "${caption}".` : `• Display this exact on-screen text: "${caption}".`);
@@ -718,6 +773,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
         promptLines.push(isMalay ? '• Jangan ubah bahasa.' : '• Do not change the language.');
 
         const fullPrompt = promptLines.join('\n');
+        
         const image = { imageBytes: imageBase64, mimeType: 'image/png' };
         
         const { videoFile, thumbnailUrl } = await generateVideo(
@@ -731,6 +787,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
 
         if (videoFile) {
             const objectUrl = URL.createObjectURL(videoFile);
+
             setGeneratedVideos(prev => {
                 const newVideos = [...prev];
                 if (newVideos[index] && newVideos[index]?.startsWith('blob:')) {
@@ -744,6 +801,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
                 newThumbs[index] = thumbnailUrl;
                 return newThumbs;
             });
+
             setVideoGenerationStatus(prev => {
                 const newStatus = [...prev];
                 newStatus[index] = 'success';
@@ -762,8 +820,17 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
                 }
             }).catch(err => {
                 console.error("Background video processing failed:", err);
+                addLogEntry({
+                    model: videoModel,
+                    prompt: `Background save for Scene ${index + 1}`,
+                    output: `Failed to save video to history/gallery. Error: ${err.message}`,
+                    tokenCount: 0,
+                    status: 'Error',
+                    error: err.message
+                });
             });
         }
+
     } catch (e) {
         const userFriendlyMessage = handleApiError(e);
         setVideoGenerationErrors(prev => {
@@ -783,7 +850,9 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
     setIsGeneratingVideos(true);
     isVideoCancelledRef.current = false;
     for (let i = 0; i < 4; i++) {
-        if (isVideoCancelledRef.current) break;
+        if (isVideoCancelledRef.current) {
+            break;
+        }
         if (generatedImages[i] && parsedScenes[i]) {
             await handleGenerateVideo(i, true);
         }
@@ -793,7 +862,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
   
   const handleCancelVideos = () => {
       isVideoCancelledRef.current = true;
-      setIsGeneratingVideos(false);
+      setIsGeneratingVideos(false); // Immediately update UI
   };
 
   const handleDownloadVideo = async (url: string | null, filename: string, index: number) => {
@@ -801,7 +870,9 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
     setDownloadingVideoIndex(index);
     try {
         const response = await fetch(url);
-        if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+        if (!response.ok) {
+            throw new Error(`Download failed: ${response.statusText}`);
+        }
         const blob = await response.blob();
         const objectUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -840,6 +911,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
 
     setIsGeneratingVideos(false);
     setVideoGenerationStatus(Array(4).fill('idle'));
+    // Use the ref to ensure we're revoking the latest URLs
     generatedVideosRef.current.forEach(url => { if (url && url.startsWith('blob:')) URL.revokeObjectURL(url) });
     setGeneratedVideos(Array(4).fill(null));
     setGeneratedThumbnails(Array(4).fill(null));
@@ -858,6 +930,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
   const step2Disabled = parsedScenes.length === 0;
   const step3Disabled = !generatedImages.some(img => img);
   
+  // Logic for Preview Modal
     const validGeneratedImages = useMemo(() => 
         generatedImages
             .map((img, index) => ({ img, index }))
@@ -873,6 +946,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
 
     const itemToPreview = useMemo(() => {
         if (!currentPreviewItemInFilteredList) return null;
+        
         return {
             id: `scene-${currentPreviewItemInFilteredList.item.index}`,
             type: 'Image' as const,
@@ -913,11 +987,13 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
         </div>
       </div>
 
+      {/* Step 1: Inputs and Storyboard Generation */}
       <div className="bg-white dark:bg-neutral-900 p-6 rounded-lg shadow-sm">
         <h2 className="text-lg sm:text-xl font-semibold mb-1">Step 1: Generate Script & Storyboard</h2>
         <p className="text-sm sm:text-base text-neutral-500 dark:text-neutral-400 mb-6">Provide product details and creative direction to generate a 4-scene video script.</p>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column: Inputs */}
           <div className="space-y-4">
             <div>
                 <h3 className="text-base sm:text-lg font-semibold mb-2">Include a Model?</h3>
@@ -957,6 +1033,8 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
                     <div><label className="block text-sm font-medium mb-1">Output Language</label><select value={selectedLanguage} onChange={e => { const newLang = e.target.value; setSelectedLanguage(newLang); setVideoLanguage(newLang); }} className="w-full bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-sm">{languages.map(o=><option key={o}>{o}</option>)}</select></div>
                     <div><label className="block text-sm font-medium mb-1">Include Voiceover Script?</label><select value={includeVoiceover} onChange={e => setIncludeVoiceover(e.target.value as any)} className="w-full bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-sm"><option>Yes</option><option>No</option></select></div>
                     <div><label className="block text-sm font-medium mb-1">Include On-Screen Captions?</label><select value={includeCaptions} onChange={e => setIncludeCaptions(e.target.value as any)} className="w-full bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-sm"><option>Yes</option><option>No</option></select></div>
+                    
+                    {/* ADDED: Aspect Ratio Selection for both Image and Video Steps */}
                     <div>
                         <label className="block text-sm font-medium mb-1">Aspect Ratio</label>
                         <select value={videoAspectRatio} onChange={e => setVideoAspectRatio(e.target.value)} className="w-full bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-sm">
@@ -985,6 +1063,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
             </div>
             {storyboardError && <p className="text-red-500 text-center mt-2">{storyboardError}</p>}
           </div>
+          {/* Right Column: Storyboard Output */}
           <div className="bg-neutral-100 dark:bg-neutral-800/50 rounded-lg p-4 relative min-h-[300px] flex flex-col">
             <h3 className="text-base sm:text-lg font-semibold mb-2 flex-shrink-0">Generated Storyboard</h3>
             {storyboard && (
@@ -1016,6 +1095,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
         </div>
       </div>
 
+      {/* Step 2: Image Generation */}
       <div className={`bg-white dark:bg-neutral-900 p-6 rounded-lg shadow-sm transition-opacity duration-500 ${step2Disabled ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
         <div className="flex justify-between items-center mb-1">
             <h2 className="text-lg sm:text-xl font-semibold">Step 2: Generate Scene Images</h2>
@@ -1025,6 +1105,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
         <button onClick={handleGenerateAllImages} disabled={isGeneratingImages || step2Disabled} className="w-full mb-6 bg-primary-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50">
             {isGeneratingImages ? <Spinner/> : 'Create All 4 Images'}
         </button>
+        {isGeneratingImages && <p className="text-center text-sm text-neutral-500 -mt-4 mb-4">This may take a minute...</p>}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {Array.from({ length: 4 }).map((_, i) => (
                 <div key={`image-scene-${i}`} className="bg-neutral-100 dark:bg-neutral-800/50 p-3 rounded-lg flex flex-col gap-3">
@@ -1039,6 +1120,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
                         style={{ aspectRatio: videoAspectRatio.replace(':', ' / ') }}
                         role="button"
                         tabIndex={generatedImages[i] && typeof generatedImages[i] === 'string' ? 0 : -1}
+                        aria-label={`Preview scene ${i + 1}`}
                     >
                         {step2Disabled ? (
                             <div className="flex flex-col items-center justify-center text-center text-xs text-neutral-500 p-2">
@@ -1071,20 +1153,35 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
                                 autoFocus
                             />
                             <div className="flex gap-2">
-                                <button onClick={() => handleEditScene(i)} disabled={imageLoadingStatus[i] || !editPrompt.trim()} className="w-full text-sm bg-primary-600 text-white font-semibold py-2 px-3 rounded-md hover:bg-primary-700 transition-colors disabled:opacity-50 flex items-center justify-center">
+                                <button 
+                                    onClick={() => handleEditScene(i)} 
+                                    disabled={imageLoadingStatus[i] || !editPrompt.trim()} 
+                                    className="w-full text-sm bg-primary-600 text-white font-semibold py-2 px-3 rounded-md hover:bg-primary-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+                                >
                                     {imageLoadingStatus[i] ? <Spinner/> : 'Submit Edit'}
                                 </button>
-                                <button onClick={() => setEditingSceneIndex(null)} className="flex-shrink-0 text-sm bg-neutral-200 dark:bg-neutral-600 font-semibold py-2 px-3 rounded-md hover:bg-neutral-300 dark:hover:bg-neutral-500 transition-colors">
+                                <button 
+                                    onClick={() => setEditingSceneIndex(null)} 
+                                    className="flex-shrink-0 text-sm bg-neutral-200 dark:bg-neutral-600 font-semibold py-2 px-3 rounded-md hover:bg-neutral-300 dark:hover:bg-neutral-500 transition-colors"
+                                >
                                     Cancel
                                 </button>
                             </div>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 gap-2">
-                            <button onClick={() => handleRetryScene(i)} disabled={imageLoadingStatus[i] || !parsedScenes[i]} className="w-full text-sm bg-white dark:bg-neutral-700 font-semibold py-2 px-3 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                            <button 
+                                onClick={() => handleRetryScene(i)} 
+                                disabled={imageLoadingStatus[i] || !parsedScenes[i]} 
+                                className="w-full text-sm bg-white dark:bg-neutral-700 font-semibold py-2 px-3 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
                                 {imageLoadingStatus[i] ? <Spinner/> : <><ImageIcon className="w-4 h-4"/> Create New Image</>}
                             </button>
-                            <button onClick={() => { setEditingSceneIndex(i); setEditPrompt(''); }} disabled={!generatedImages[i] || typeof generatedImages[i] !== 'string' || imageLoadingStatus[i]} className="w-full text-sm bg-white dark:bg-neutral-700 font-semibold py-2 px-3 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                            <button 
+                                onClick={() => { setEditingSceneIndex(i); setEditPrompt(''); }} 
+                                disabled={!generatedImages[i] || typeof generatedImages[i] !== 'string' || imageLoadingStatus[i]} 
+                                className="w-full text-sm bg-white dark:bg-neutral-700 font-semibold py-2 px-3 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
                                 <WandIcon className="w-4 h-4"/> Edit This Image
                             </button>
                             <a
@@ -1092,6 +1189,8 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
                                 download={generatedImages[i] && typeof generatedImages[i] === 'string' ? `${BRAND_CONFIG.shortName.toLowerCase()}-scene-${i + 1}.png` : undefined}
                                 className={`w-full text-sm bg-green-600 text-white font-semibold py-2 px-3 rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2 ${!generatedImages[i] || typeof generatedImages[i] !== 'string' ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
                                 onClick={(e) => { if (!generatedImages[i] || typeof generatedImages[i] !== 'string') e.preventDefault(); }}
+                                aria-disabled={!generatedImages[i] || typeof generatedImages[i] !== 'string'}
+                                role="button"
                             >
                                 <DownloadIcon className="w-4 h-4"/> Download
                             </a>
@@ -1102,9 +1201,10 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
         </div>
       </div>
       
+       {/* Step 3: Video Generation */}
       <div className={`bg-white dark:bg-neutral-900 p-6 rounded-lg shadow-sm transition-opacity duration-500 ${step3Disabled ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
         <h2 className="text-lg sm:text-xl font-semibold mb-1">Step 3: Generate Scene Videos</h2>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Animate your generated scene images into video clips.</p>
+        <p className="text-sm sm:text-base text-neutral-500 dark:text-neutral-400 mb-6">Animate your generated scene images into video clips.</p>
         
         <div className="mb-6 p-4 border border-neutral-200 dark:border-neutral-700 rounded-lg">
             <h3 className="text-base sm:text-lg font-semibold mb-2">Video Generation Settings</h3>
@@ -1204,83 +1304,59 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
             {Array.from({ length: 4 }).map((_, i) => (
                  <div key={`video-scene-${i}`} className="bg-neutral-100 dark:bg-neutral-800/50 p-3 rounded-lg flex flex-col gap-3">
                     <p className="font-bold text-sm">Scene {i+1}</p>
-                    <div className="bg-neutral-200 dark:bg-neutral-700/50 rounded-md flex items-center justify-center relative group"
-                        style={{ aspectRatio: videoAspectRatio.replace(':', ' / ') }}
-                    >
-                        {videoGenerationStatus[i] === 'loading' ? (
-                            <div className="text-center">
-                                <Spinner />
-                                <p className="text-[10px] mt-2 text-neutral-500 animate-pulse">Generating...</p>
-                            </div>
-                        ) : videoGenerationStatus[i] === 'success' && generatedVideos[i] ? (
-                            <div className="relative w-full h-full">
-                                <video 
-                                    src={generatedVideos[i]!} 
-                                    poster={generatedThumbnails[i] || undefined}
-                                    className="w-full h-full object-cover rounded-md"
-                                    controls
-                                />
-                                <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button 
-                                        onClick={() => handleDownloadVideo(generatedVideos[i], videoFilenames[i] || `scene-${i+1}.mp4`, i)}
-                                        className="p-1.5 bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors"
-                                        title="Download Video"
-                                    >
-                                        <DownloadIcon className="w-4 h-4"/>
-                                    </button>
-                                </div>
-                            </div>
-                        ) : videoGenerationStatus[i] === 'error' ? (
-                            <div className="text-center p-2 text-red-500">
-                                <AlertTriangleIcon className="w-8 h-8 mx-auto mb-1"/>
-                                <p className="text-[10px] line-clamp-2">{videoGenerationErrors[i]}</p>
-                                <button 
-                                    onClick={() => handleGenerateVideo(i)}
-                                    className="mt-1 text-[10px] font-bold text-primary-600 hover:underline"
-                                >
-                                    Retry
-                                </button>
-                            </div>
-                        ) : (
+                    <div className="bg-neutral-200 dark:bg-neutral-700/50 rounded-md flex items-center justify-center relative group" style={{ aspectRatio: videoAspectRatio.replace(':', ' / ') }}>
+                        {step3Disabled || !generatedImages[i] ? (
                             <div className="flex flex-col items-center justify-center text-center text-xs text-neutral-500 p-2">
-                                <VideoIcon className="w-8 h-8 mb-2 opacity-20"/>
-                                <p>{generatedImages[i] ? 'Ready to animate' : 'Need scene image'}</p>
+                                <VideoIcon className="w-8 h-8 mb-2"/>
+                                <p>Waiting for image</p>
                             </div>
+                        ) : videoGenerationStatus[i] === 'loading' ? <Spinner/> : videoGenerationStatus[i] === 'error' ? (
+                            <div className="text-center text-red-500 p-2"><AlertTriangleIcon className="w-8 h-8 mx-auto mb-2"/><p className="text-xs">{videoGenerationErrors[i]}</p></div>
+                        ) : videoGenerationStatus[i] === 'success' && generatedVideos[i] ? (
+                            <video
+                                key={generatedVideos[i]}
+                                src={generatedVideos[i]!} 
+                                poster={generatedThumbnails[i] || `data:image/png;base64,${generatedImages[i]}`} 
+                                controls 
+                                autoPlay
+                                playsInline
+                                muted
+                                className="w-full h-full object-cover rounded-md"
+                            />
+                        ) : (
+                            <img src={`data:image/png;base64,${generatedImages[i]}`} alt={`Scene ${i+1} preview`} className="w-full h-full object-cover rounded-md"/>
                         )}
                     </div>
-                    <button 
-                        onClick={() => handleGenerateVideo(i)}
-                        disabled={!generatedImages[i] || videoGenerationStatus[i] === 'loading' || isGeneratingVideos}
-                        className="w-full text-xs bg-white dark:bg-neutral-700 font-semibold py-2 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                        {videoGenerationStatus[i] === 'loading' ? <Spinner /> : <><VideoIcon className="w-3 h-3"/> {generatedVideos[i] ? 'Regenerate' : 'Create Video'}</>}
+                    <button onClick={() => handleGenerateVideo(i)} disabled={!generatedImages[i] || videoGenerationStatus[i] === 'loading' || isGeneratingVideos} className="w-full text-sm bg-white dark:bg-neutral-700 font-semibold py-2 px-3 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                       {videoGenerationStatus[i] === 'loading' ? <Spinner/> : <><VideoIcon className="w-4 h-4"/> Create Video</>}
                     </button>
-                 </div>
+                    <button
+                        onClick={() => handleDownloadVideo(generatedVideos[i], videoFilenames[i] || `monoklix-scene-${i+1}.mp4`, i)}
+                        disabled={!generatedVideos[i] || downloadingVideoIndex !== null}
+                        className="w-full text-sm bg-green-600 text-white font-semibold py-2 px-3 rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2 text-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {downloadingVideoIndex === i ? <Spinner /> : <DownloadIcon className="w-4 h-4"/>}
+                        {downloadingVideoIndex === i ? 'Downloading...' : 'Download'}
+                    </button>
+                </div>
             ))}
         </div>
       </div>
-      
-      {previewingSceneIndex !== null && itemToPreview && (
-        <PreviewModal
-          item={itemToPreview}
-          onClose={() => setPreviewingSceneIndex(null)}
-          getDisplayUrl={(item) => `data:image/png;base64,${item.result}`}
-          onNext={handleNextPreview}
-          onPrevious={handlePreviousPreview}
-          hasNext={hasNextPreview}
-          hasPrevious={hasPreviousPreview}
-          language={language}
-        />
+
+      {itemToPreview && (
+          <PreviewModal
+              item={itemToPreview}
+              onClose={() => setPreviewingSceneIndex(null)}
+              getDisplayUrl={(item) => `data:image/png;base64,${item.result}`}
+              onNext={handleNextPreview}
+              onPrevious={handlePreviousPreview}
+              hasNext={hasNextPreview}
+              hasPrevious={hasPreviousPreview}
+              language={language}
+          />
       )}
     </div>
   );
 };
-
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div>
-        <h2 className="text-lg font-semibold mb-2">{title}</h2>
-        {children}
-    </div>
-);
 
 export default ProductReviewView;

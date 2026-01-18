@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   getSalesStatistics,
@@ -20,7 +19,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({
     total_accounts: number;
     available: number;
     sold: number;
-    transferred: number; // FIX: Added transferred to match service response
+    transferred: number;
     reserved: number;
     suspended: number;
     expired: number;
@@ -268,3 +267,4 @@ const DollarSignIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 export default StatisticsView;
+

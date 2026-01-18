@@ -322,8 +322,7 @@ const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ language }) => 
 
             const result = await saveUserPersonalAuthToken(selectedRegistration.user_id, newToken || null);
             if (result.success === false) {
-                // FIX: Use type assertion to access 'message' on union type.
-                resolve({ success: false, message: (result as any).message });
+                resolve({ success: false, message: result.message });
             } else {
                 resolve({ success: true });
             }
@@ -390,8 +389,7 @@ const handleRemoveUser = () => {
             setStatusMessage({ type: 'success', message: `User ${selectedRegistration.username} has been removed.` });
             fetchUsers();
         } else {
-             // FIX: Use type assertion to access 'message' on union type.
-             setStatusMessage({ type: 'error', message: `Failed to remove user: ${(result as any).message}` });
+             setStatusMessage({ type: 'error', message: `Failed to remove user: ${result.message}` });
         }
         setIsModalOpen(false);
         setIsConfirmRemoveOpen(false);
@@ -757,8 +755,7 @@ const handleRemoveUser = () => {
                                                 fetchUsers();
                                                 setIsModalOpen(false);
                                             } else {
-                                                // FIX: Use type assertion to access 'message' on union type.
-                                                setStatusMessage({ type: 'error', message: (result as any).message });
+                                                setStatusMessage({ type: 'error', message: result.message });
                                             }
                                             setIsAssigningEmailCode(null);
                                             setTimeout(() => setStatusMessage(null), 5000);
@@ -856,8 +853,7 @@ const handleRemoveUser = () => {
                                                     fetchUsers();
                                                     setIsModalOpen(false);
                                                 } else {
-                                                    // FIX: Use type assertion to access 'message' on union type.
-                                                    setStatusMessage({ type: 'error', message: (result as any).message || 'Failed to reset email code' });
+                                                    setStatusMessage({ type: 'error', message: result.message || 'Failed to reset email code' });
                                                 }
                                                 setIsAssigningEmailCode(null);
                                                 setTimeout(() => setStatusMessage(null), 5000);
@@ -884,8 +880,7 @@ const handleRemoveUser = () => {
                                                 // Reset first
                                                 const resetResult = await resetEmailCodeFromUser(selectedRegistration.user_id);
                                                 if (!resetResult.success) {
-                                                    // FIX: Use type assertion to access 'message' on union type.
-                                                    setStatusMessage({ type: 'error', message: (resetResult as any).message || 'Failed to reset email code' });
+                                                    setStatusMessage({ type: 'error', message: resetResult.message || 'Failed to reset email code' });
                                                     setIsAssigningEmailCode(null);
                                                     setTimeout(() => setStatusMessage(null), 5000);
                                                     return;
@@ -903,8 +898,7 @@ const handleRemoveUser = () => {
                                                     fetchUsers();
                                                     setIsModalOpen(false);
                                                 } else {
-                                                    // FIX: Use type assertion to access 'message' on union type.
-                                                    setStatusMessage({ type: 'error', message: (assignResult as any).message });
+                                                    setStatusMessage({ type: 'error', message: assignResult.message });
                                                 }
                                                 setIsAssigningEmailCode(null);
                                                 setTimeout(() => setStatusMessage(null), 5000);
