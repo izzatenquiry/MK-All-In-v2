@@ -10,8 +10,8 @@ export type BrandName = 'esai' | 'monoklix';
  * Format: {brand}_{platform}_v{number}
  */
 export const SHARED_APP_VERSION = {
-  electron: 'All_In_PC_v2',
-  web: 'All_In_WEB_v2',
+  electron: 'Anti_Captcha_PC_v5',
+  web: 'Anti_Captcha_WEB_v5',
 };
 
 export interface BrandConfig {

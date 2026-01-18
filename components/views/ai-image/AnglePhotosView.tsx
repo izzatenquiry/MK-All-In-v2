@@ -258,9 +258,15 @@ const AnglePhotosView: React.FC<AnglePhotosViewProps> = ({ onReEdit, onCreateVid
         const isLocalhost = selectedServer?.includes('localhost');
         const availableServers = UI_SERVER_LIST.map(s => s.url).filter(url => !url.includes('localhost'));
         
+        // Angle Photos always generates 4 images, so we random distribute for load balancing
+        // Exception: If localhost is selected, use localhost for all requests
         const promises = [];
         for (let i = 0; i < 4; i++) {
-            const serverUrl = isLocalhost ? selectedServer : (availableServers.length > 0 ? availableServers[Math.floor(Math.random() * availableServers.length)] : undefined);
+            const serverUrl = isLocalhost 
+                ? selectedServer 
+                : (availableServers.length > 0 
+                    ? availableServers[Math.floor(Math.random() * availableServers.length)] 
+                    : undefined);
             const randomCamera = getRandomOption(cameraOptions);
             const randomPose = getRandomOption(poseOptions);
             

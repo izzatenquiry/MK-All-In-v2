@@ -456,7 +456,10 @@ const Nanobanana2GenerationView: React.FC<Nanobanana2GenerationViewProps> = ({
     const selectedServer = sessionStorage.getItem('selectedProxyServer');
     const isLocalhost = selectedServer?.includes('localhost');
     
-    // Multi-Server Distribution: Randomly distribute requests across different servers
+    // Multi-Server Distribution: 
+    // - If 1 image: Use user's selected server
+    // - If multiple images: Randomly distribute for load balancing
+    // - If localhost: Always use localhost for all requests
     const serverUrls: (string | undefined)[] = [];
     
     if (isLocalhost) {
@@ -464,7 +467,12 @@ const Nanobanana2GenerationView: React.FC<Nanobanana2GenerationViewProps> = ({
             serverUrls.push(selectedServer);
         }
         console.log(`🚀 [Localhost] Using localhost server for all ${numberOfImages} image generation requests`);
+    } else if (numberOfImages === 1) {
+        // Single image: Use user's selected server
+        serverUrls.push(selectedServer || undefined);
+        console.log(`🚀 [Single Image] Using user-selected server: ${selectedServer}`);
     } else {
+        // Multiple images: Randomly distribute for load balancing
         const availableServers = UI_SERVER_LIST
             .map(s => s.url)
             .filter(url => !url.includes('localhost'));

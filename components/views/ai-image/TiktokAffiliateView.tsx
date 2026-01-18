@@ -362,8 +362,10 @@ const TiktokAffiliateView: React.FC<TiktokAffiliateViewProps> = ({ onReEdit, onC
         const selectedServer = sessionStorage.getItem('selectedProxyServer');
         const isLocalhost = selectedServer?.includes('localhost');
         
-        // Multi-Server Distribution: Randomly distribute requests across different servers
-        // If user selected localhost, use localhost for all requests (no distribution)
+        // Multi-Server Distribution: 
+        // - If 1 image: Use user's selected server
+        // - If multiple images: Randomly distribute for load balancing
+        // - If localhost: Always use localhost for all requests
         const serverUrls: (string | undefined)[] = [];
         
         if (isLocalhost) {
@@ -372,8 +374,12 @@ const TiktokAffiliateView: React.FC<TiktokAffiliateViewProps> = ({ onReEdit, onC
                 serverUrls.push(selectedServer);
             }
             console.log(`🚀 [Localhost] Using localhost server for all ${numberOfImages} image generation requests`);
+        } else if (numberOfImages === 1) {
+            // Single image: Use user's selected server
+            serverUrls.push(selectedServer || undefined);
+            console.log(`🚀 [Single Image] Using user-selected server: ${selectedServer}`);
         } else {
-            // Filter out localhost server for production multi-server distribution
+            // Multiple images: Randomly distribute for load balancing
             const availableServers = UI_SERVER_LIST
                 .map(s => s.url)
                 .filter(url => !url.includes('localhost'));
